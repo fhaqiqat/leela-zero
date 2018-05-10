@@ -132,6 +132,7 @@ const std::string GTP::s_commands[] = {
     "komi",
     "play",
     "genmove",
+    "match_sgf",
     "showboard",
     "undo",
     "final_score",
@@ -381,6 +382,22 @@ bool GTP::execute(GameState & game, std::string xinput) {
             gtp_fail_printf(id, "syntax not understood");
         }
         return true;
+    } else if (command.find("match_sgf") == 0) {
+
+        int move = game.get_last_move();
+        if (move > 0 ) {
+            game.undo_move();
+            auto generated_move = search->think(game.get_to_move());
+            game.play_move(move);
+            std::string vertex_move = game.move_to_text(move);
+            std::string vertex_genereated_move = game.move_to_text(generated_move);
+            if (move == generated_move)
+                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s", vertex_genereated_move.c_str());
+            else 
+                gtp_printf(id,"Played move in the game: %s", vertex_move.c_str());
+        } else
+        
+            gtp_printf(id,"None");
     } else if (command.find("kgs-genmove_cleanup") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
