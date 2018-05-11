@@ -392,9 +392,9 @@
             std::string vertex_move = game.move_to_text(move);
             std::string vertex_genereated_move = game.move_to_text(generated_move);
             if (move == generated_move)
-                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s Played move in the game: %s  %i", vertex_genereated_move.c_str(), vertex_move.c_str(),1);
+                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),1);
             else
-                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s Played move in the game: %s  %i", vertex_genereated_move.c_str(), vertex_move.c_str(),0);
+                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),0);
         } else
         
             gtp_printf(id,"None");
