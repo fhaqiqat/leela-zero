@@ -398,6 +398,7 @@
         } else
         
             gtp_printf(id,"None");
+        return true;
     } else if (command.find("kgs-genmove_cleanup") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
