@@ -45,6 +45,7 @@ public:
 
     void rewind(void); /* undo infinite */
     bool undo_move(void);
+    bool jump_move(int);
     bool forward_move(void);
     const FullBoard& get_past_board(int moves_ago) const;
 

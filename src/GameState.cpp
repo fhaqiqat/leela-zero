@@ -80,6 +80,21 @@ bool GameState::undo_move(void) {
     }
 }
 
+bool GameState::jump_move(int movenum) {
+    int size = static_cast<int>(game_history.size());
+    if (movenum < size) {
+        m_movenum = movenum;
+
+        // this is not so nice, but it should work
+        *(static_cast<KoState*>(this)) = *game_history[movenum];
+
+        // This also restores hashes as they're part of state
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void GameState::rewind(void) {
     *(static_cast<KoState*>(this)) = *game_history[0];
     m_movenum = 0;

@@ -75,6 +75,9 @@
     std::string cfg_options_str;
     bool cfg_benchmark;
 
+    //file name for match_sgf command 
+    std::string match_sgf_filename;
+
     void GTP::setup_default_parameters() {
         cfg_gtp_mode = false;
         cfg_allow_pondering = true;
@@ -108,6 +111,7 @@
         cfg_quiet = false;
         cfg_benchmark = false;
 
+        match_sgf_filename="results.txt";
         // C++11 doesn't guarantee *anything* about how random this is,
         // and in MinGW it isn't random at all. But we can mix it in, which
         // helps when it *is* high quality (Linux, MSVC).
@@ -133,8 +137,10 @@
         "play",
         "genmove",
         "match_sgf",
+        "m_sgf_filename",
         "showboard",
         "undo",
+        "jump_move",
         "final_score",
         "final_status_list",
         "time_settings",
@@ -383,22 +389,38 @@
             }
             return true;
         } else if (command.find("match_sgf") == 0) {
+            int move = game.get_last_move();
+            if (move > 0 ) {
+                game.undo_move();
+                auto generated_move = search->think(game.get_to_move());
+                game.play_move(move);
+                std::string vertex_move = game.move_to_text(move);
+                std::string vertex_genereated_move = game.move_to_text(generated_move);
+                std::ofstream myfile;
+                myfile.open(match_sgf_filename, std::ios_base::app);
+                if (move == generated_move) {
+                    myfile << vertex_move.c_str() << ":" << vertex_genereated_move.c_str() <<":"<<"1"<< std::endl;
+                    gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),1);
+                } else {
+                    myfile << vertex_move.c_str() << ":" << vertex_genereated_move.c_str() <<":"<<"0" << std::endl;                
+                    gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),0);
+                }
+            } else
+            
+                gtp_printf(id,"None");
+            return true; 
+    } else if (command.find("m_sgf_filename") == 0) {
+            std::istringstream cmdstream(command);
+            std::string tmp;
 
-        int move = game.get_last_move();
-        if (move > 0 ) {
-            game.undo_move();
-            auto generated_move = search->think(game.get_to_move());
-            game.play_move(move);
-            std::string vertex_move = game.move_to_text(move);
-            std::string vertex_genereated_move = game.move_to_text(generated_move);
-            if (move == generated_move)
-                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),1);
-            else
-                gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),0);
-        } else
-        
-            gtp_printf(id,"None");
-        return true;
+            cmdstream >> tmp;  // eat m_sgf_filename
+            cmdstream >> tmp;
+            if (!cmdstream.fail()) {
+                match_sgf_filename = tmp;
+            } else {
+                gtp_fail_printf(id, "syntax not understood");
+            }
+            return true;
     } else if (command.find("kgs-genmove_cleanup") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
@@ -442,6 +464,24 @@
             gtp_fail_printf(id, "cannot undo");
         }
         return true;
+    } else if (command.find("jump_move") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp;
+        int movenum;
+        cmdstream >> tmp;  // eat jump_move
+        cmdstream >> movenum;
+
+        if (!cmdstream.fail()) {
+            if (game.jump_move(movenum)) {
+                gtp_printf(id, "");
+            } else {
+                gtp_fail_printf(id, "cannot jump");
+            }
+            return true;
+        } else {
+                    gtp_fail_printf(id, "syntax not understood");
+            }
+
     } else if (command.find("showboard") == 0) {
         gtp_printf(id, "");
         game.display_state();
