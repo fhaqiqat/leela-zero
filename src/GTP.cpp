@@ -101,7 +101,8 @@
         cfg_softmax_temp = 1.0f;
         cfg_fpu_reduction = 0.25f;
         // see UCTSearch::should_resign
-        cfg_resignpct = -1;
+        // changed to not resign
+        cfg_resignpct = 0;
         cfg_noise = false;
         cfg_random_cnt = 0;
         cfg_random_min_visits = 1;
@@ -405,8 +406,8 @@
                     myfile << vertex_move.c_str() << ":" << vertex_genereated_move.c_str() <<":"<<"0" << std::endl;                
                     gtp_printf(id,"Chosen move by GtpEngine GenMove: %s   Played move in the game: %s   %i", vertex_genereated_move.c_str(), vertex_move.c_str(),0);
                 }
-            } else
-            
+                myfile.close();
+            } else 
                 gtp_printf(id,"None");
             return true; 
     } else if (command.find("m_sgf_filename") == 0) {
