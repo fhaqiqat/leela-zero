@@ -600,9 +600,10 @@ int UCTSearch::think(int color, passflag_t passflag) {
         tg.add_task(UCTWorker(m_rootstate, this, m_root.get()));
     }
 
-    bool keeprunning = true;
+    //bool keeprunning = true;
+    bool keeprunning  =  m_playouts < m_maxplayouts;
     int last_update = 0;
-    do {
+    while (keeprunning){
         auto currstate = std::make_unique<GameState>(m_rootstate);
 
         auto result = play_simulation(*currstate, m_root.get());
@@ -622,7 +623,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(elapsed_centis, time_for_move);
         keeprunning &= have_alternate_moves(elapsed_centis, time_for_move);
-    } while (keeprunning);
+    };
 
     // stop the search
     m_run = false;
