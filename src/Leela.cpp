@@ -236,8 +236,8 @@ static void parse_commandline(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        // 0 may be specified to mean "no limit"
-        if (cfg_max_playouts == 0) {
+        // -1 may be specified to mean "no limit"
+        if (cfg_max_playouts == -1) {
             cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
         }
     }
@@ -245,8 +245,8 @@ static void parse_commandline(int argc, char *argv[]) {
     if (vm.count("visits")) {
         cfg_max_visits = vm["visits"].as<int>();
 
-        // 0 may be specified to mean "no limit"
-        if (cfg_max_visits == 0) {
+        // -1 may be specified to mean "no limit"
+        if (cfg_max_visits == -1) {
             cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
         }
     }
