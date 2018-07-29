@@ -37,7 +37,7 @@ public:
         DIRECT, RANDOM_SYMMETRY, AVERAGE
     };
     using ScoreVertexPair = std::pair<float,int>;
-
+    using ScoreVertexTriple = std::tuple<float,float,int>;
     struct Netresult {
         // 19x19 board positions
         std::vector<float> policy;

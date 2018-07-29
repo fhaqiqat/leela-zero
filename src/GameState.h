@@ -48,7 +48,7 @@ public:
     bool jump_move(int);
     bool forward_move(void);
     const FullBoard& get_past_board(int moves_ago) const;
-
+    
     void play_move(int color, int vertex);
     void play_move(int vertex);
     bool play_textmove(const std::string& color,

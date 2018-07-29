@@ -112,7 +112,7 @@
         cfg_quiet = false;
         cfg_benchmark = false;
 
-        match_sgf_filename="results.txt";
+        match_sgf_filename = "results.txt";
         // C++11 doesn't guarantee *anything* about how random this is,
         // and in MinGW it isn't random at all. But we can mix it in, which
         // helps when it *is* high quality (Linux, MSVC).
@@ -389,6 +389,9 @@
                 gtp_fail_printf(id, "syntax not understood");
             }
             return true;
+        } else if (command.find("eval_sgf") == 0 ) {
+            search->think_eval(match_sgf_filename, game.get_to_move());
+            return true;           
         } else if (command.find("match_sgf") == 0) {
             int move = game.get_last_move();
             if (move > 0 ) {

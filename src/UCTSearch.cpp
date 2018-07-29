@@ -200,6 +200,32 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     return result;
 }
 
+void UCTSearch::create_stats(FastState & state, UCTNode & parent, std::map<std::string,int> & move_visits) {
+    if (!parent.has_children()) {
+        return;
+    }
+    const int color = state.get_to_move();
+
+    // sort children, put best move on top
+    parent.sort_children(color);
+
+    if (parent.get_first_child()->first_visit()) {
+        return;
+    }
+
+    int movecount = 0;
+    for (const auto& node : parent.get_children()) {
+        // Always display at least two moves. In the case there is
+        // only one move searched the user could get an idea why.
+        if (++movecount > 2 && !node->get_visits()) break;
+
+        std::string move = state.move_to_text(node->get_move());
+        FastState tmpstate = state;
+        tmpstate.play_move(node->get_move());
+        move_visits[move] = node->get_visits();
+    }    
+    
+}
 void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
     if (cfg_quiet || !parent.has_children()) {
         return;
@@ -658,6 +684,126 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // Copy the root state. Use to check for tree re-use in future calls.
     m_last_rootstate = std::make_unique<GameState>(m_rootstate);
     return bestmove;
+}
+
+void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t passflag) {
+    int move = m_rootstate.get_last_move();
+    int move_num = m_rootstate.get_movenum();
+    std::ofstream myfile;
+    myfile.open(match_sgf_filename, std::ios_base::app);
+    std::string move_text = m_rootstate.move_to_text(move);   
+    myfile <<  move_num << ":" << move_text.c_str() << std::endl;
+    myfile.close();
+
+    if (move > 0 ) {
+        std::vector<Network::ScoreVertexTriple> nodelist;
+        std::vector<Network::ScoreVertexTriple> selectedMoveNode;
+        std::vector<Network::ScoreVertexTriple> bestWinRateNode;
+        float bestWinRate = 0.0;
+        float bestPolicy = 0.0;
+        int bestMove = -1;
+
+        m_rootstate.undo_move();
+
+        //m_rootstate
+        const auto raw_netlist = Network::get_scored_moves(
+            &m_rootstate, Network::Ensemble::RANDOM_SYMMETRY);
+
+
+        //nodelist.emplace_back(master_winrate,raw_netlist.policy[move], move);
+        // DCNN returns winrate as side to move
+        float eval = raw_netlist.winrate;
+        const auto to_move = m_rootstate.board.get_to_move();
+        // our search functions evaluate from black's point of view
+        if (m_rootstate.board.white_to_move()) {
+            eval = 1.0f - eval;
+        } 
+       
+        auto legal_sum = 0.0f;
+        for (auto i = 0; i < BOARD_SQUARES; i++) {
+            const auto x = i % BOARD_SIZE;
+            const auto y = i / BOARD_SIZE;
+            const auto vertex = m_rootstate.board.get_vertex(x, y);
+            if (m_rootstate.is_move_legal(to_move, vertex)) {
+                m_rootstate.play_move(to_move,vertex);
+                const auto raw_netlist_child = Network::get_scored_moves(
+                    &m_rootstate, Network::Ensemble::RANDOM_SYMMETRY);
+                float child_winrate = raw_netlist_child.winrate;
+                if (m_rootstate.board.white_to_move()) {
+                    child_winrate = 1.0f - child_winrate;
+                } 
+                m_rootstate.undo_move();
+
+                if (bestWinRate < child_winrate) {
+                    bestWinRate = child_winrate;
+                    bestPolicy = raw_netlist.policy[i];
+                    bestMove = vertex;
+                }
+                if (vertex == move) {
+                    selectedMoveNode.emplace_back(child_winrate,raw_netlist.policy[i], vertex);
+                }
+                nodelist.emplace_back(child_winrate,raw_netlist.policy[i], vertex);
+                legal_sum += raw_netlist.policy[i];
+            }
+        }
+        m_rootstate.play_move(to_move,FastBoard::PASS);
+        const auto raw_netlist_pass = Network::get_scored_moves(
+            &m_rootstate, Network::Ensemble::RANDOM_SYMMETRY);
+        float pass_winrate = raw_netlist_pass.winrate;
+        if (m_rootstate.board.white_to_move()) {
+            pass_winrate = 1.0f - pass_winrate;
+        } 
+        if (bestWinRate < pass_winrate) {
+            bestWinRate = pass_winrate;
+            bestPolicy = raw_netlist.policy_pass;
+            bestMove = FastBoard::PASS;
+        }
+        if (move == FastBoard::PASS) {
+            selectedMoveNode.emplace_back(pass_winrate,raw_netlist.policy_pass, FastBoard::PASS);
+        }
+
+        m_rootstate.undo_move();
+
+        nodelist.emplace_back(pass_winrate, raw_netlist.policy_pass, FastBoard::PASS);
+        legal_sum += raw_netlist.policy_pass;
+
+        if (legal_sum > std::numeric_limits<float>::min()) {
+            // re-normalize after removing illegal moves.
+            for (auto& node : nodelist) {
+                std::get<1>(node) /= legal_sum;
+            }
+        } 
+        
+        auto move = think(color,passflag); 
+        std::map <std::string,int> move_visits;
+        create_stats(m_rootstate, *m_root, move_visits);
+        //TODO record simulations of all children then put in file
+        fileprint_stat(nodelist, match_sgf_filename, move_visits);
+        m_rootstate.play_move(to_move,move);
+    } else {
+            ;
+    }
+
+}
+
+void UCTSearch::fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist, std::string match_sgf_filename, std::map <std::string,int> move_visits) {
+    std::ofstream myfile;
+    myfile.open(match_sgf_filename, std::ios_base::app);
+    for (auto& node : nodelist) {
+        auto winrate = std::get<0>(node);
+        auto policy_rate = std::get<1>(node);
+        auto move = std::get<2>(node);
+        int num_visits;
+        std::string move_text = m_rootstate.move_to_text(move);
+        if ( move_visits.find(move_text) == move_visits.end() ) {
+            num_visits = 0; 
+        } else {
+            num_visits = move_visits[move_text];
+        }
+        myfile << winrate << ":" << policy_rate << ":" << move_text.c_str() << ":" << num_visits << ":" <<  m_playouts <<  std::endl;
+        //TODO How to add simulations and win-rate from search to here
+    }
+    myfile.close();
 }
 
 void UCTSearch::ponder() {
