@@ -200,7 +200,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     return result;
 }
 
-void UCTSearch::create_stats(FastState & state, UCTNode & parent, std::map<std::string,int> & move_visits) {
+void UCTSearch::create_stats(FastState & state, UCTNode & parent, std::map <std::string,std::tuple<int,float>> & move_visits) {
     if (!parent.has_children()) {
         return;
     }
@@ -222,7 +222,8 @@ void UCTSearch::create_stats(FastState & state, UCTNode & parent, std::map<std::
         std::string move = state.move_to_text(node->get_move());
         FastState tmpstate = state;
         tmpstate.play_move(node->get_move());
-        move_visits[move] = node->get_visits();
+        std::tuple<int,float> stats(node->get_visits(),node->get_eval(color));
+        move_visits[move] = stats;
     }    
     
 }
@@ -692,8 +693,7 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
     std::ofstream myfile;
     myfile.open(match_sgf_filename, std::ios_base::app);
     std::string move_text = m_rootstate.move_to_text(move);   
-    myfile <<  move_num << ":" << move_text.c_str() << std::endl;
-    myfile.close();
+    myfile <<  move_num << ":" << move_text.c_str() << ":";
 
     if (move > 0 ) {
         std::vector<Network::ScoreVertexTriple> nodelist;
@@ -714,11 +714,13 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
         // DCNN returns winrate as side to move
         float eval = raw_netlist.winrate;
         const auto to_move = m_rootstate.board.get_to_move();
+        /*
         // our search functions evaluate from black's point of view
         if (m_rootstate.board.white_to_move()) {
             eval = 1.0f - eval;
         } 
-       
+        */
+        myfile << eval << ":"; 
         auto legal_sum = 0.0f;
         for (auto i = 0; i < BOARD_SQUARES; i++) {
             const auto x = i % BOARD_SIZE;
@@ -729,9 +731,11 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
                 const auto raw_netlist_child = Network::get_scored_moves(
                     &m_rootstate, Network::Ensemble::RANDOM_SYMMETRY);
                 float child_winrate = raw_netlist_child.winrate;
+                /*
                 if (m_rootstate.board.white_to_move()) {
                     child_winrate = 1.0f - child_winrate;
                 } 
+                */
                 m_rootstate.undo_move();
 
                 if (bestWinRate < child_winrate) {
@@ -750,9 +754,11 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
         const auto raw_netlist_pass = Network::get_scored_moves(
             &m_rootstate, Network::Ensemble::RANDOM_SYMMETRY);
         float pass_winrate = raw_netlist_pass.winrate;
+        /*
         if (m_rootstate.board.white_to_move()) {
             pass_winrate = 1.0f - pass_winrate;
         } 
+        */
         if (bestWinRate < pass_winrate) {
             bestWinRate = pass_winrate;
             bestPolicy = raw_netlist.policy_pass;
@@ -774,8 +780,11 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
             }
         } 
         
-        auto move = think(color,passflag); 
-        std::map <std::string,int> move_visits;
+        auto selected_move = think(color,passflag); 
+        std::string selected_move_text = m_rootstate.move_to_text(selected_move);   
+        std::map <std::string,std::tuple<int,float>> move_visits;
+        myfile << selected_move_text.c_str() << std::endl;
+        myfile.close();
         create_stats(m_rootstate, *m_root, move_visits);
         //TODO record simulations of all children then put in file
         fileprint_stat(nodelist, match_sgf_filename, move_visits);
@@ -786,7 +795,7 @@ void UCTSearch::think_eval(std::string match_sgf_filename, int color, passflag_t
 
 }
 
-void UCTSearch::fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist, std::string match_sgf_filename, std::map <std::string,int> move_visits) {
+void UCTSearch::fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist, std::string match_sgf_filename, std::map <std::string,std::tuple<int,float>> move_visits) {
     std::ofstream myfile;
     myfile.open(match_sgf_filename, std::ios_base::app);
     for (auto& node : nodelist) {
@@ -794,13 +803,17 @@ void UCTSearch::fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist
         auto policy_rate = std::get<1>(node);
         auto move = std::get<2>(node);
         int num_visits;
+        float eval;
         std::string move_text = m_rootstate.move_to_text(move);
         if ( move_visits.find(move_text) == move_visits.end() ) {
             num_visits = 0; 
+            eval = 0.0;
         } else {
-            num_visits = move_visits[move_text];
+            auto stats = move_visits[move_text];
+            num_visits = std::get<0>(stats);
+            eval = std::get<1>(stats);
         }
-        myfile << winrate << ":" << policy_rate << ":" << move_text.c_str() << ":" << num_visits << ":" <<  m_playouts <<  std::endl;
+        myfile << winrate << ":" << policy_rate << ":" << move_text.c_str() << ":" << num_visits << ":" << eval << ":" <<  m_playouts <<  std::endl;
         //TODO How to add simulations and win-rate from search to here
     }
     myfile.close();

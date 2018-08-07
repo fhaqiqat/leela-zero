@@ -95,7 +95,7 @@ public:
     UCTSearch(GameState& g);
     int think(int color, passflag_t passflag = NORMAL);
     void think_eval(std::string match_sgf_filename, int color, passflag_t passflag = NORMAL);
-    void fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist, std::string match_sgf_filename, std::map <std::string,int> move_visits);
+    void fileprint_stat(std::vector<Network::ScoreVertexTriple> &nodelist, std::string match_sgf_filename, std::map <std::string,std::tuple<int,float>> move_visits);
     void set_playout_limit(int playouts);
     void set_visit_limit(int visits);
     void ponder();
@@ -105,7 +105,7 @@ public:
 
 private:
     float get_min_psa_ratio() const;
-    void create_stats(FastState& state, UCTNode& parent, std::map<std::string,int> & move_visits);
+    void create_stats(FastState& state, UCTNode& parent, std::map <std::string,std::tuple<int,float>> & move_visits);
     void dump_stats(FastState& state, UCTNode& parent);
     void tree_stats(const UCTNode& node);
     std::string get_pv(FastState& state, UCTNode& parent);
